@@ -1,0 +1,116 @@
+#!/bin/bash
+
+GIT_FOLDER=$HOME/git
+
+if [[ -n $SSH_CONNECTION ]]; then
+  export EDITOR='vim'
+else
+  export EDITOR='nvim'
+fi
+
+# For enabling k8s krew 
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+# Change kubectl editor
+export KUBE_EDITOR=$EDITOR
+
+# Change systemd edit editor
+# TODO: Need to change visudo also... (Defaults  env_keep += "SYSTEMD_EDITOR")
+export SYSTEMD_EDITOR=$EDITOR
+
+# Change default editor 
+export VISUAL=$EDITOR
+
+# Change git editor
+export GIT_EDITOR=$EDITOR
+
+# ============ Enable GOTO =============
+
+if [ -f $GIT_FOLDER/goto/goto.sh ]; then
+    source $GIT_FOLDER/goto/goto.sh
+fi
+
+# ============ Enable kubectl autocompletion =============
+
+if command -v kubectl 2>&1 >/dev/null ; then
+    source <(kubectl completion bash)
+fi
+
+# ============ Enable helm autocompletion =============
+if command -v helm >/dev/null; then
+    source <(helm completion bash)
+fi
+
+# ============ Enable starship =============
+
+if command -v starship 2>&1 >/dev/null ; then
+    eval "$(starship init bash)"
+fi 
+
+# ============ Enable FuzzyFinder ============
+
+if command -v fzf 2>&1 >/dev/null ; then
+    source <(fzf --bash)
+fi 
+
+# ============ Enable UV (Python) autocompletion ============
+
+if command -v uv 2>&1 >/dev/null ; then
+    source <(uv generate-shell-completion bash)
+fi
+
+# ============ Fix keybindings ============
+
+# Needs to run the following lines if the zkbd file does not exist
+# autoload zkbd; zkbd
+
+if [ -f ~/.zkbd/$TERM-${${DISPLAY:t}:-$VENDOR-$OSTYPE} ]; then
+    source ~/.zkbd/$TERM-${${DISPLAY:t}:-$VENDOR-$OSTYPE}
+    
+    [[ -n ${key[Backspace]} ]] && bindkey "${key[Backspace]}" backward-delete-char
+    [[ -n ${key[Insert]} ]] && bindkey "${key[Insert]}" overwrite-mode
+    [[ -n ${key[Home]} ]] && bindkey "${key[Home]}" beginning-of-line
+    [[ -n ${key[PageUp]} ]] && bindkey "${key[PageUp]}" up-line-or-history
+    [[ -n ${key[Delete]} ]] && bindkey "${key[Delete]}" delete-char
+    [[ -n ${key[End]} ]] && bindkey "${key[End]}" end-of-line
+    [[ -n ${key[PageDown]} ]] && bindkey "${key[PageDown]}" down-line-or-history
+    [[ -n ${key[Up]} ]] && bindkey "${key[Up]}" up-line-or-search
+    [[ -n ${key[Left]} ]] && bindkey "${key[Left]}" backward-char
+    [[ -n ${key[Down]} ]] && bindkey "${key[Down]}" down-line-or-search
+    [[ -n ${key[Right]} ]] && bindkey "${key[Right]}" forward-char
+fi
+
+# ============ Dinamically source ENV =============
+
+# For segmenting TMUX environment sessions using the following command
+# tmux new-session -e TARGET_ENV=$(realpath .env)
+if [[ ! -z $AGNEROTH_TARGET_ENV ]]; then
+    source $AGNEROTH_TARGET_ENV
+fi
+
+# ============ Start SSH Agent =============
+
+# Ensure agent is running
+ssh-add -l &>/dev/null
+if [ "$?" == 2 ]; then
+    # Could not open a connection to your authentication agent.
+
+    # Load stored agent connection info.
+    test -r ~/.ssh-agent && \
+        eval "$(<~/.ssh-agent)" >/dev/null
+
+    ssh-add -l &>/dev/null
+    if [ "$?" == 2 ]; then
+        # Start agent and store agent connection info.
+        (umask 066; ssh-agent > ~/.ssh-agent)
+        eval "$(<~/.ssh-agent)" >/dev/null
+    fi
+fi
+
+# # Load identities
+# ssh-add -l &>/dev/null
+# if [ "$?" == 1 ]; then
+#     # The agent has no identities.
+#     # Time to add one.
+#     ssh-add $HOME/.ssh/...
+# fi

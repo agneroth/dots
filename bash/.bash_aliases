@@ -1,0 +1,116 @@
+# ============ PRIVACY ============
+
+# alias nohist="HISTFILE=/dev/null HISTIGNORE='*' bash"
+# alias clrhist="history -c && history -w"
+
+# ============ Other ============
+
+# So that this watch works with aliases
+alias watcha="watch "
+
+# ============ Enconding/Crypto ============
+
+b64 () {
+  read -s BUFF && echo -n "$BUFF" | base64
+  unset BUFF
+}
+
+b64d () {
+  read -s BUFF && echo -n "$BUFF" | base64 -d
+  unset BUFF
+}
+
+# ============ NAVIGATION ============
+
+alias ll="ls -al"
+
+greps () {
+  sudo ps aux | { head -1; grep -i $@; }
+}
+
+
+# ============ SHORTCUTS ============
+
+alias sshl="cat $HOME/.ssh/config"
+
+function aptu {
+  sudo apt update -y && sudo apt upgrade -y
+}
+
+function reload {
+  exec bash
+}
+
+# ============ DOCKER ============
+
+function dxit {	
+	docker exec -it $1 $2
+}
+
+# ============ KUBERNETES ============
+
+alias k="kubectl"
+
+function kneat {
+  kubectl get $1 $2 -o yaml | kubectl neat 
+}
+
+mergekube () {
+    KUBECONFIG="$1:$2" kubectl config view --flatten > $3
+}
+
+# ============ TERRAFORM ============
+
+alias tf="terraform" 
+alias tfw="terraform workspace"
+
+# ============ GOOGLE CLOUD ============
+
+gssh () {
+  local TARGET_VM=$1
+  local ARGS=("${@:2}")
+  gcloud compute ssh $TARGET_VM "${ARGS[@]}"
+}
+
+gscp () {
+  gcloud compute scp "${@}"
+}
+
+ginst () {
+  gcloud compute instances list "${@}"
+}
+
+gcluster () {
+  gcloud container clusters list "${@}"
+}
+
+gsshl () {
+  gcloud compute ssh $1 -- -L $2:127.0.0.1:$2 -N -vvv
+}
+
+gtags () {
+    # (g)oogle tags...
+    # Get tags from a VM...    
+    # $1 is the target VM name.
+    local TARGET_VM=$1
+    local ARGS=("${@:2}")
+    gcloud compute instances describe $TARGET_VM --format="value(tags.items)" "${ARGS[@]}"
+}
+
+# ============ COLORS ============
+
+# enable color support of ls, less and man, and also add handy aliases
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    export LS_COLORS="$LS_COLORS:ow=30;44:" # fix ls color for folders with 777 permissions
+
+    alias ls='ls --color=auto'
+    #alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
+
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+    alias diff='diff --color=auto'
+    alias ip='ip --color=auto'
+fi
