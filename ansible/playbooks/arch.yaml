@@ -1,0 +1,24 @@
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+    - name: Install packages
+      community.general.pacman:
+        name:
+          - neovim
+          - ripgrep
+          - fd
+          - tmux
+          - btop
+          - fzf
+          - starship
+          - stow
+          - bat
+          - tree-sitter-cli
+          - gcc
+          - make
+          - unzip
+          - git
+        state: latest
+      register: out
+    - debug: msg={{ out.stdout_lines }}

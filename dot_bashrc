@@ -1,7 +1,7 @@
 # === Dotfiles Sources - Start ===
 
-source /home/agneroth/.bashrc_dots
-source /home/agneroth/.bash_aliases
+source "${HOME}/.bashrc_dots"
+source "${HOME}/.bash_aliases"
 
 # For dinamically sourcing environment files with tmux
 if [[ ! -z $TARGET_ENV ]]; then

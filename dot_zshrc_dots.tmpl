@@ -1,15 +1,47 @@
+#!/usr/bin/env zsh
 
-if [[ -n $SSH_CONNECTION ]]; then
-  export EDITOR='vim'
-else
-  export EDITOR='nvim'
-fi
+# ============ Path config ============
 
 # For enabling k8s krew 
 export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 
 # Source go
 export PATH="$HOME/go/bin:$PATH"
+export GOPATH="$HOME/go"
+
+# Source local binaries
+export PATH="$HOME/.local/bin:$PATH"
+
+# Nix
+export PATH="$HOME/.nix-profile/bin:$PATH"
+
+# LazyGit
+export LG_CONFIG_FILE="$HOME/.config/lazygit/lazygit.yml"
+
+# ============ Shell config ============
+
+export HISTSIZE=10000000
+export SAVEHIST=10000000
+setopt EXTENDED_HISTORY
+
+# ============ Editor config ============
+
+{{- $hasNvim := lookPath "nvim" -}}
+{{ if $hasNvim }}
+alias v=nvim
+alias vi=nvim
+alias vim=nvim
+{{ end }}
+
+if [[ -n $SSH_CONNECTION ]]; then
+  export EDITOR='vim'
+else
+  {{ if $hasNvim }}
+  export EDITOR='nvim'
+  {{ else }}
+  export EDITOR='vim'
+  {{ end }}
+fi
 
 # Change kubectl editor
 export KUBE_EDITOR=$EDITOR
@@ -24,13 +56,16 @@ export VISUAL=$EDITOR
 # Change git editor
 export GIT_EDITOR=$EDITOR
 
-export STARSHIP_CONFIG=/home/agneroth/git/dots/.config/starship.toml
+{{- $hasDelta := lookPath "delta" }}
+{{ if $hasDelta }}
+export GIT_PAGER="delta"
+{{ end }}
+
+# ============ Variables ============
+
+export STARSHIP_CONFIG="${HOME}/.config/starship.toml"
 
 # ============ Auxiliary Function ============
-
-command_exists() {
-  command -v "$@" >/dev/null 2>&1
-}
 
 {{- $hasOMZ := stat (printf "%s/.oh-my-zsh/oh-my-zsh.sh" .chezmoi.homeDir) -}}
 
@@ -46,6 +81,7 @@ command_exists() {
 {{- $hasPodman := lookPath "podman" -}}
 {{- $hasZoxide := lookPath "zoxide" -}}
 {{- $hasUv := lookPath "uv" -}}
+{{- $hasFlux := lookPath "flux" -}}
 
 {{- $hasZshAutosuggestions := stat (printf "%s/.oh-my-zsh/custom/plugins/zsh-autosuggestions" .chezmoi.homeDir) }}
 {{- $hasZshSyntaxHighlighting := stat (printf "%s/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" .chezmoi.homeDir) }}
@@ -79,36 +115,42 @@ plugins=(
     {{ if $hasUv -}} uv {{- end }}
     {{ if $hasZshAutosuggestions -}} zsh-autosuggestions {{- end }}
     {{ if $hasZshSyntaxHighlighting -}} zsh-syntax-highlighting {{- end }}
+    {{ if $hasFlux -}} fluxcd {{- end }}
 )
 
 zstyle ':omz:plugins:alias-finder' autoload yes
-
 {{ if $hasDocker }}
 zstyle ':completion:*:*:docker:*' option-stacking yes
 zstyle ':completion:*:*:docker-*:*' option-stacking yes
 
-{{ end }}
+{{ end -}}
 {{ if $hasZshAutosuggestions }}
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#999'
 
-{{ end }}
+{{ end -}}
 source "$ZSH/oh-my-zsh.sh"
 {{ else }}
 # ============ Fallback shell configuration ============
 
 {{ if $hasKubectl -}} source <(kubectl completion zsh) {{- end }}
+{{ if $hasHelm -}} source <(helm completion zsh) {{- end }}
 {{ if $hasStarship -}} eval "$(starship init zsh)" {{- end }}
 {{ if $hasFzf -}} source <(fzf --zsh) {{- end }}
-{{ if $hasHelm -}} source <(helm completion zsh) {{- end }}
 {{ if $hasUv -}} source <(uv generate-shell-completion zsh) {{- end }}
-{{ if $hasZoxide -}} eval "$(zoxide init zsh)" {{- end }}
+{{ if $hasFlux -}} source <(flux completion bash) {{- end }}
 
-{{ end }}
+{{ end -}}
+{{ if $hasZoxide }}
+# ============ Enable zoxide ============
+
+eval "$(zoxide init zsh)"
+
+{{- end }}
 {{ if $hasGoto }}
-# ============ Enable GOTO =============
+# ============ enable goto =============
 source ${HOME}/.local/share/goto/goto.sh
 
-{{ end }}
+{{ end -}}
 # ============ Fix keybindings ============
 
 # Needs to run the following lines if the zkbd file does not exist

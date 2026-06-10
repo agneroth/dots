@@ -1,0 +1,36 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+function checkclone() {
+    local repository=${1:?Please provider repository}
+    local target=${2:?Please provide target}
+
+    if test -d $target; then
+        echo "[WARN] Could not clone $repository."
+        echo "[WARN] Target $target already exists."
+    else
+        git clone $repository $target
+    fi
+}
+
+# ============ GOTO ============
+
+checkclone https://github.com/iridakos/goto.git "${HOME}/.local/share/goto"
+
+# ============ TMUX PLUGIN MANAGER ============
+
+checkclone https://github.com/tmux-plugins/tpm "${HOME}/.tmux/plugins/tpm"
+
+# ============ ZSH ============
+
+checkclone https://github.com/ohmyzsh/ohmyzsh.git "${HOME}/.oh-my-zsh"
+checkclone https://github.com/zsh-users/zsh-autosuggestions "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions"
+checkclone https://github.com/zsh-users/zsh-syntax-highlighting "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting"
+
+# ============ NVIM Kickstart ============
+
+# requires some dependencies... check the git
+checkclone https://github.com/agneroth/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
+git -C "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim checkout development
+{{ end }}

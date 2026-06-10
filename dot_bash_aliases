@@ -1,17 +1,47 @@
+#!/user/bin/env bash
+
 # ============ PRIVACY ============
 
 # alias nohist="HISTFILE=/dev/null HISTIGNORE='*' bash"
 # alias clrhist="history -c && history -w"
 
+# ============ bare worktrees ===========
+
+gwit () {
+  local repository_url=${1:?Please provide repository URL [1]}
+  local target_dir=${2:?Please provite target URL [2]}
+
+  if test -e "${target_dir}"; then
+    echo "ERROR: ${target_dir} directory/file already exists" 2>&1
+  fi
+
+  mkdir "${target_dir}"
+  git -C "${target_dir}" clone --bare "${repository_url}" ".bare"
+  echo "gitdir: ./.bare" > "${target_dir}/.git"
+  git -C "${target_dir}" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+  git -C "${target_dir}" fetch
+}
+
+gwtc () {
+  local worktree=${1:?Please provide worktree/branch name [1]}
+  local source_branch=${2:?Please provide source branch [2]}
+
+  git worktree add ${worktree} ${source_branch} -b ${worktree}
+}
+
+wti () {
+    cd "$(git worktree list | fzf | awk '{print $1}')"
+}
+
 # ============ Other ============
 
 wgu () {
-  TARGET_CONF=${TARGET_CONF:-fr-par-wg-001.conf}
+  TARGET_CONF=${TARGET_CONF:-tardis.conf}
   sudo wg-quick up "$(goto -x vpn)/$TARGET_CONF"
 }
 
 wgd () {
-  TARGET_CONF=${TARGET_CONF:-fr-par-wg-001.conf}
+  TARGET_CONF=${TARGET_CONF:-tardis.conf}
   sudo wg-quick down "$(goto -x vpn)/$TARGET_CONF"
 }
 
@@ -134,3 +164,7 @@ if [ -x /usr/bin/dircolors ]; then
     alias ip='ip --color=auto'
 fi
 
+# Tests, executed when run directly
+if ! (return 2>/dev/null); then
+	echo "I AM MAIN, TODO: ADD TESTS"
+fi

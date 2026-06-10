@@ -1,0 +1,25 @@
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+    - name: Install packages
+      community.general.pacman:
+        name:
+          - tealdeer
+          - fzf
+          - neovim
+          - tmux
+          - ripgrep
+          - btop
+          - zsh
+          - starship
+          - fd-find
+          - bat
+          - tree-sitter-cli
+          - gcc
+          - make
+          - unzip
+          - git
+        state: latest
+      register: out
+    - debug: msg={{ out.stdout_lines }}

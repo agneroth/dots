@@ -1,20 +1,84 @@
-#!/bin/env zsh
-# TODO: Ensure cross compatibility between ZSH and BASH and merge this into only one file...
+#!/usr/bin/env zsh
+
+# TODO: Translate into bash, possibly subdivide in common syntax or not
 
 # ============ PRIVACY ============
 
 # alias nohist="HISTFILE=/dev/null HISTIGNORE='*' bash"
 # alias clrhist="history -c && history -w"
 
+# ============ basic ===========
+
+command_exists() {
+  command -v "$@" >/dev/null 2>&1
+}
+
+consent () {
+  local agreed
+  echo -n "Do you confirm? [Y/n]: "
+  read -r agreed || { echo "[ERROR]: Failed to read consent" >&2; exit 1}
+  case "${agreed}" in
+    [Yy]) return 0;;
+    *) return 1
+  esac
+}
+
+printrow() {
+  local row char=${1:-"="}
+  # NOTE: ZSH-SPECIFIC (requires shopt in bash)
+  printf -v row '%*s' "$COLUMNS" ''
+  printf '%s\n' "${row// /$char}"
+}
+
+failerror() {
+  local rc=${1:?Please provide a return code}
+  local message=${2:?Please provide a message}
+
+  printf '%s %s\n' "[ERROR]" "$message" >&2
+  return "$rc"
+}
+
+# ============ bare worktrees ===========
+
+gwit () {
+  local repository_url=${1:?Please provide repository URL [1]}
+  local target_dir=${2:?Please provite target URL [2]}
+
+  if test -e "${target_dir}"; then
+    echo "ERROR: ${target_dir} directory/file already exists" >&2
+  fi
+
+  mkdir "${target_dir}"
+  git -C "${target_dir}" clone --bare "${repository_url}" ".bare"
+  echo "gitdir: ./.bare" > "${target_dir}/.git"
+  git -C "${target_dir}" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+  git -C "${target_dir}" fetch
+}
+
+gwtc () {
+  local worktree=${1:?Please provide worktree/branch name [1]}
+  local source_branch=${2:?Please provide source branch [2]}
+
+  git worktree add ${worktree} ${source_branch} -b ${worktree}
+}
+
+wti () {
+    cd "$(git worktree list | fzf | awk '{print $1}')"
+}
+
+gtrt () {
+  cd "$(git rev-parse  --show-toplevel)"
+}
+
 # ============ Other ============
 
 wgu () {
-  TARGET_CONF=${1:-fr-711.conf}
+  TARGET_CONF=${1:-tardis.conf}
   sudo wg-quick up "$(goto -x vpn)/$TARGET_CONF"
 }
 
 wgf () {
-  TARGET_CONF=${1:-fr-711.conf}
+  TARGET_CONF=${1:-tardis.conf}
   sudo wg-quick up "$(goto -x vpn)/$TARGET_CONF"
   OLD_PORT=0
   while true; do
@@ -47,7 +111,7 @@ wgf () {
 }
 
 wgd () {
-  TARGET_CONF=${1:-fr-711.conf}
+  TARGET_CONF=${1:-tardis.conf}
   sudo wg-quick down "$(goto -x vpn)/$TARGET_CONF"
 }
 
@@ -67,32 +131,81 @@ sbuff () {
   unset BUFF
 }
 
-b64 () {
-  read -s BUFF && echo -n "$BUFF" | base64
-  unset BUFF
+pipebuff() {
+  local log=${1:?Please provide an operation to log}
+  local quiet=${2:-false}
+  shift 2
+
+  (( $# )) || failerror 1 "No command provided."
+
+  if [ -t 0 ]; then
+    local buff
+    printf 'Please provide input to %s:\n' "$log" >&2
+    printrow
+    IFS= read -r  buff || { failerror 1 "Failed to read buffer."; return 1; }
+    printf '%s output:\n' "$log" >&2
+    printrow
+
+    if [[ $quiet == true ]]; then
+      printf '%s' "$buff" | "$@" 2>/dev/null
+    else
+      printf '%s' "$buff" | "$@"
+    fi
+  else
+    if [[ $quiet == true ]]; then
+      "$@" 2>/dev/null
+    else
+      "$@"
+    fi
+  fi
 }
 
-b64d () {
-  read -s BUFF && echo -n "$BUFF" | base64 -d
-  unset BUFF
+b64() {
+  if ! pipebuff "base64 ENCODE" false base64; then
+    failerror 1 "Failed to base64 ENCODE"
+  fi
+}
+
+b64d() {
+  if ! pipebuff "base64 DECODE" false base64 -d; then
+    echo >&2
+    failerror 1 "Failed to base64 DECODE"
+  fi
+}
+
+urlencode() {
+  local LC_ALL=C char buff
+  local -i i
+  IFS= read -r -d '' buff
+  for (( i = 1; i <= ${#buff}; i++ )); do
+    char=${buff[i]}
+    case $char in
+      [a-zA-Z0-9.~_-]) printf '%s' "$char" ;;
+      *) printf '%%%02X' "'$char" ;;
+    esac
+  done
+  printf '\n'
+}
+
+urldecode() {
+  local buff
+  IFS= read -r -d '' buff
+  buff=${buff//+/ }
+  buff=${buff//\\/\\\\}
+  printf '%b\n' "${buff//\%/\\x}"
+EOF
 }
 
 url () {
-  read -s BUFF && cat <<EOF | python -
-import urllib.parse as parse
-print(parse.quote("$BUFF"))
-EOF
+  pipebuff "url ENCODE" true urlencode
 }
 
 urld () {
-  read -s BUFF && cat <<EOF | python -
-import urllib.parse as parse
-print(parse.unquote("$BUFF"))
-EOF
+  pipebuff "url DECODE" true urldecode
 }
 
 qr () {
-  read -s BUFF && qrencode $BUFF -t ansiutf8
+  pipebuff "QR ENCODE" true qrencode -t ansiutf8
 }
 
 # ============ NAVIGATION ============
@@ -207,3 +320,60 @@ if [ -x /usr/bin/dircolors ]; then
     alias ip='ip --color=auto'
 fi
 
+# ============ TESTS =========
+
+
+
+# NOTE: ZSH-SPECIFIC
+if [[ $ZSH_EVAL_CONTEXT != *:file ]]; then (
+  b64_aliases_test () {
+    echo "Testing b64 and b64d aliases:"
+    local test_string='
+    multiline
+    test
+    '
+    if [[ $(echo "$test_string" | b64 | b64d) != "$test_string" ]]; then
+      echo "Failed."
+      return 1
+    fi
+    echo "Pass."
+  }
+
+  url_aliases_test() {
+    echo "Testing urlencode and decode:"
+    local -a cases=(
+      ''                  ''
+      'abcXYZ012-._~'     'abcXYZ012-._~'
+      'hello world'       'hello%20world'
+      'a+b/c?x=1&y=2%'   'a%2Bb%2Fc%3Fx%3D1%26y%3D2%25'
+      'café'              'caf%C3%A9'
+      $'first\nsecond'    'first%0Asecond'
+      'a\nb'              'a%5Cnb'
+    )
+    local input encoded actual
+    local -i i failed=0
+
+    for (( i = 1; i <= ${#cases}; i += 2 )); do
+      input=${cases[i]}
+      encoded=${cases[i+1]}
+      result="$(printf '%s' "$input" | urlencode)"
+      if [[ $result != "$encoded" ]]; then
+        echo "Encode decode failed for $input. Expected $encoded, got $result"
+        failed=1
+      fi
+    done
+
+    # if ! actual=$(urldecode 'hello+world') || [[ $actual != 'hello world' ]]; then
+    #   printf 'Decoding + failed: got %q\n' "$actual" >&2
+    #   failed=1
+    # fi
+
+    if (( failed )) && return 1
+    echo "Pass."
+  }
+
+  echo "Running tests:"
+  b64_aliases_test
+  url_aliases_test
+  )
+fi

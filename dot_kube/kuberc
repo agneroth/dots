@@ -1,0 +1,18 @@
+# To use, set this file path to $KUBERC
+# Alternativelly by default in $HOME/.kube/kuberc
+
+# To disable, `export KUBERC=off` or `export KUBECTL_KUBERC=false`
+apiVersion: kubectl.config.k8s.io/v1beta1
+kind: Preference
+defaults:
+- command: delete
+  options:
+    # Disable with `-i=false`
+    - name: interactive
+      default: "true"
+- command: apply
+  options:
+    - name: dry-run
+      default: "server"
+    - name: server-side
+      default: "true"
