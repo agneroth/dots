@@ -1,0 +1,24 @@
+{{ if eq .chezmoi.osRelease.id "ubuntu" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+PACKAGES=(
+{{- range .packages.linux.ubuntu.apt }}
+  "{{ . }}"
+{{- end }}
+)
+
+if [ ${#PACKAGES[@]} -eq 0 ]; then
+  echo "No packages defined — skipping"
+  exit 0
+fi
+
+echo "Installing Ubuntu packages..."
+
+sudo apt-get update
+
+sudo apt-get install -y "${PACKAGES[@]}"
+{{ else -}}
+#!/usr/bin/env bash
+echo "Not Ubuntu — skipping apt installs"
+{{ end }}

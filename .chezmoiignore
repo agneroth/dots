@@ -1,0 +1,4 @@
+# Ignore docker demonstration file
+Dockerfile
+ansible/
+docs/

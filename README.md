@@ -1,14 +1,20 @@
 # Installation
 
-**TODO**
+For example on Ubuntu:
 
-For tmux, do not forget to <SUPER>+I to install plug-ins
+```sh
+sudo apt install -y fzf neovim tmux ripgrep btop zsh starship fd-find bat tree-sitter-cli gcc make unzip git
+sh -c "$(curl -fsLS get.chezmoi.io/lb)" -- init --apply https://github.com/agneroth/dots.git --branch main
+```
 
-## README
+> [!warning] 
+> This will overwrite your nvim configurartion
 
-### Shortcuts
+Use the bleeding edge of nvim, for example
 
-#### fzf
-
-- `CTRL+T` - Fuzzy recurse search files and directories on the current folder
-- `CTRL+R` - Fuzzy search history
+```
+sudo apt install nix
+sudo systemctl enable nix-daemon.socket --now
+sudo usemod -aG nix-users ${USER}
+nix profile add nixpkgs#neovim
+```
