@@ -1,16 +1,56 @@
-# TODO: Ensure cross compatibility between ZSH and BASH and merge this into only one file...
-
 # ============ PRIVACY ============
 
 # alias nohist="HISTFILE=/dev/null HISTIGNORE='*' bash"
 # alias clrhist="history -c && history -w"
 
+# ============ bare worktrees ===========
+
+gwit () {
+  local repository_url=${1:?Please provide repository URL [1]}
+  local target_dir=${2:?Please provite target URL [2]}
+
+  if test -e "${target_dir}"; then
+    echo "ERROR: ${target_dir} directory/file already exists" 2>&1
+  fi
+
+  mkdir "${target_dir}"
+  git -C "${target_dir}" clone --bare "${repository_url}" ".bare"
+  echo "gitdir: ./.bare" > "${target_dir}/.git"
+  git -C "${target_dir}" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+}
+
+gwtc () {
+  local worktree=${1:?Please provide worktree/branch name [1]}
+  local source_branch=${2:?Please provide source branch [2]}
+
+  git worktree add ${worktree} ${source_branch} -b ${worktree}
+}
+
+wti () {
+    cd "$(git worktree list | fzf | awk '{print $1}')"
+}
+
 # ============ Other ============
+
+wgu () {
+  TARGET_CONF=${TARGET_CONF:-tardis.conf}
+  sudo wg-quick up "$(goto -x vpn)/$TARGET_CONF"
+}
+
+wgd () {
+  TARGET_CONF=${TARGET_CONF:-tardis.conf}
+  sudo wg-quick down "$(goto -x vpn)/$TARGET_CONF"
+}
 
 # So that this watch works with aliases
 alias watcha="watch "
 
 # ============ Enconding/Crypto ============
+
+sbuff () {
+  read -s BUFF && echo "$BUFF" | sha512sum
+  unset BUFF
+}
 
 b64 () {
   read -s BUFF && echo -n "$BUFF" | base64
@@ -22,12 +62,16 @@ b64d () {
   unset BUFF
 }
 
+qr () {
+  read -s BUFF && qrencode $BUFF -t ansiutf8
+}
+
 # ============ NAVIGATION ============
 
 alias ll="ls -al"
 
 greps () {
-  sudo ps auf | { head -1; grep -i $@; }
+  sudo ps aux | { head -1; grep -i $@; }
 }
 
 
@@ -35,28 +79,25 @@ greps () {
 
 alias sshl="cat $HOME/.ssh/config"
 
-aptu () {
+function aptu {
   sudo apt update -y && sudo apt upgrade -y
 }
 
-reload () {
-  exec zsh
+function reload {
+  exec bash
 }
 
 # ============ DOCKER ============
 
-dxit () {	
+function dxit {	
 	docker exec -it $1 $2
 }
 
 # ============ KUBERNETES ============
 
-# Enable if not created by omz
-if ! command_exists omz ; then
-  alias k="kubectl"
-fi
+alias k="kubectl"
 
-kneat () {
+function kneat {
   kubectl get $1 $2 -o yaml | kubectl neat 
 }
 
@@ -66,7 +107,7 @@ mergekube () {
 
 # ============ TERRAFORM ============
 
-alias tf="terraform"
+alias tf="terraform" 
 alias tfw="terraform workspace"
 
 # ============ GOOGLE CLOUD ============
@@ -119,3 +160,4 @@ if [ -x /usr/bin/dircolors ]; then
     alias diff='diff --color=auto'
     alias ip='ip --color=auto'
 fi
+

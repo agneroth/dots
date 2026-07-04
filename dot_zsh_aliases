@@ -1,0 +1,236 @@
+#!/bin/env zsh
+# TODO: Ensure cross compatibility between ZSH and BASH and merge this into only one file...
+
+# ============ PRIVACY ============
+
+# alias nohist="HISTFILE=/dev/null HISTIGNORE='*' bash"
+# alias clrhist="history -c && history -w"
+
+# ============ bare worktrees ===========
+
+gwit () {
+  local repository_url=${1:?Please provide repository URL [1]}
+  local target_dir=${2:?Please provite target URL [2]}
+
+  if test -e "${target_dir}"; then
+    echo "ERROR: ${target_dir} directory/file already exists" 2>&1
+  fi
+
+  mkdir "${target_dir}"
+  git -C "${target_dir}" clone --bare "${repository_url}" ".bare"
+  echo "gitdir: ./.bare" > "${target_dir}/.git"
+  git -C "${target_dir}" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+}
+
+gwtc () {
+  local worktree=${1:?Please provide worktree/branch name [1]}
+  local source_branch=${2:?Please provide source branch [2]}
+
+  git worktree add ${worktree} ${source_branch} -b ${worktree}
+}
+
+wti () {
+    cd "$(git worktree list | fzf | awk '{print $1}')"
+}
+
+# ============ Other ============
+
+wgu () {
+  TARGET_CONF=${1:-tardis.conf}
+  sudo wg-quick up "$(goto -x vpn)/$TARGET_CONF"
+}
+
+wgf () {
+  TARGET_CONF=${1:-tardis.conf}
+  sudo wg-quick up "$(goto -x vpn)/$TARGET_CONF"
+  OLD_PORT=0
+  while true; do
+    OUT_TPC=$(natpmpc -a 1 0 tcp 60 -g 10.2.0.1)
+    OUT_UDP=$(natpmpc -a 1 0 udp 60 -g 10.2.0.1)
+    UDP_PORT=$(echo "$OUT_UDP" | awk '/Mapped public port/ {print $4}')
+    TCP_PORT=$(echo "$OUT_UDP" | awk '/Mapped public port/ {print $4}')
+    
+    if test $UDP_PORT != $TCP_PORT; then
+        echo "Using UDP port $UDP_PORT over TCP port $TCP_PORT"
+    fi
+    PORT=$UDP_PORT
+
+    if [ -z "$PORT" ]; then
+        echo "Failed to obtain port, retrying in 30s..."
+        sleep 30
+        continue
+    fi
+
+    if test $PORT != $OLD_PORT; then
+      curl --silent \
+        --data "json={\"listen_port\":$PORT}" \
+        "http://127.0.0.1:8080/api/v2/app/setPreferences"
+      OLD_PORT=$PORT
+      echo "Updated qBittorrent to listen on port $PORT"
+    fi
+
+    sleep 45
+  done
+}
+
+wgd () {
+  TARGET_CONF=${1:-tardis.conf}
+  sudo wg-quick down "$(goto -x vpn)/$TARGET_CONF"
+}
+
+rgr () {
+  # Inplace replacement using ripgrep and REGEX 
+  # Requires scaping $1 and $2 special chars
+  rg $1 --file-with-matches | xargs sed -i "s/$1/$2/g"
+}
+
+# So that this watch works with aliases
+alias watcha="watch "
+
+# ============ Enconding/Crypto ============
+
+sbuff () {
+  read -s BUFF && echo "$BUFF" | sha512sum
+  unset BUFF
+}
+
+b64 () {
+  read -s BUFF && echo -n "$BUFF" | base64
+  unset BUFF
+}
+
+b64d () {
+  read -s BUFF && echo -n "$BUFF" | base64 -d
+  unset BUFF
+}
+
+url () {
+  read -s BUFF && cat <<EOF | python -
+import urllib.parse as parse
+print(parse.quote("$BUFF"))
+EOF
+}
+
+urld () {
+  read -s BUFF && cat <<EOF | python -
+import urllib.parse as parse
+print(parse.unquote("$BUFF"))
+EOF
+}
+
+qr () {
+  read -s BUFF && qrencode $BUFF -t ansiutf8
+}
+
+# ============ NAVIGATION ============
+
+alias ll="ls -al"
+
+greps () {
+  sudo ps auf | { head -1; grep -i $@; }
+}
+
+# alias vim=nvim
+# alias vi=nvim
+alias v="nvim"
+
+# yazi
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
+# ============ SHORTCUTS ============
+
+alias sshl="cat $HOME/.ssh/config"
+
+aptu () {
+  sudo apt update -y && sudo apt upgrade -y
+}
+
+reload () {
+  exec zsh
+}
+
+# ============ DOCKER ============
+
+dxit () {	
+	docker exec -it $1 $2
+}
+
+# ============ KUBERNETES ============
+
+# Enable if not created by omz
+if ! command_exists omz ; then
+  alias k="kubectl"
+fi
+
+kneat () {
+  kubectl get $1 $2 -o yaml | kubectl neat 
+}
+
+alias kubens="kubectl config set-context --current --namespace"
+
+mergekube () {
+    KUBECONFIG="$1:$2" kubectl config view --flatten > $3
+}
+
+# ============ TERRAFORM ============
+
+alias tf="terraform"
+alias tfw="terraform workspace"
+
+# ============ GOOGLE CLOUD ============
+
+gssh () {
+  local TARGET_VM=$1
+  local ARGS=("${@:2}")
+  gcloud compute ssh $TARGET_VM "${ARGS[@]}"
+}
+
+gscp () {
+  gcloud compute scp "${@}"
+}
+
+ginst () {
+  gcloud compute instances list "${@}"
+}
+
+gcluster () {
+  gcloud container clusters list "${@}"
+}
+
+gsshl () {
+  gcloud compute ssh $1 -- -L $2:127.0.0.1:$2 -N -vvv
+}
+
+gtags () {
+    # (g)oogle tags...
+    # Get tags from a VM...    
+    # $1 is the target VM name.
+    local TARGET_VM=$1
+    local ARGS=("${@:2}")
+    gcloud compute instances describe $TARGET_VM --format="value(tags.items)" "${ARGS[@]}"
+}
+
+# ============ COLORS ============
+
+# enable color support of ls, less and man, and also add handy aliases
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    export LS_COLORS="$LS_COLORS:ow=30;44:" # fix ls color for folders with 777 permissions
+
+    alias ls='ls --color=auto'
+    #alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
+
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+    alias diff='diff --color=auto'
+    alias ip='ip --color=auto'
+fi
+

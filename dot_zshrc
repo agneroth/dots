@@ -1,0 +1,11 @@
+# === Dotfiles Sources - Start ===
+
+source "${HOME}/.zshrc_dots"
+source "${HOME}/.zsh_aliases"
+
+# For dinamically sourcing environment files with tmux
+if [[ ! -z $TARGET_ENV ]]; then
+        source $TARGET_ENV
+fi
+
+# === Dotfiles Sources - End ===
